@@ -8,4 +8,5 @@ class ExtractionResponse(APIModel):
   insurance: Insurance
   confidence: float
   document_notes: list[str]
+  missing_fields: list[str] = []
   warnings: list[Warning] = []

@@ -16,7 +16,7 @@ The current demo supports this end-to-end flow:
 
 - Frontend: React + TypeScript + Vite + Axios with local component state
 - Backend: FastAPI + Pydantic
-- Extraction: prototype fixture-based response after validating and saving uploads
+- Extraction: Tesseract OCR + heuristic field parsing after validating and saving uploads
 - Verification: deterministic demo rules plus simplified 271 generation/parsing
 - Persistence: intentionally omitted for the demo
 
@@ -28,7 +28,7 @@ The current demo supports this end-to-end flow:
 
 ## Out of Scope
 
-- Real OCR or document AI extraction
+- Production-grade OCR tuning or document AI extraction
 - Real payer or clearinghouse integrations
 - Authentication and authorization
 - Production deployment hardening
@@ -49,6 +49,7 @@ Runs on `http://localhost:5173`.
 ### Backend
 
 ```bash
+brew install tesseract
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
