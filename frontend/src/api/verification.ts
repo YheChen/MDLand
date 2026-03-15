@@ -5,7 +5,7 @@ export async function verifyEligibility(
   payload: VerificationRequest,
 ): Promise<VerificationResponse> {
   const response = await apiClient.post<VerificationResponse>(
-    "/verification/check",
+    "/verification/verify",
     payload,
   );
 

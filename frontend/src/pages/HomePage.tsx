@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import axios from "axios";
+import { useRef, useState } from "react";
 
+import { extractDocuments } from "../api/documents";
+import { verifyEligibility } from "../api/verification";
 import ErrorBanner from "../components/ErrorBanner";
 import ExtractionReviewForm from "../components/ExtractionReviewForm";
 import FileUploadSection from "../components/FileUploadSection";
@@ -16,10 +19,6 @@ import type {
   VerificationResponse,
 } from "../types/api";
 import { EMPTY_REVIEW_FORM, INITIAL_SELECTED_DOCUMENTS } from "../utils/constants";
-import { formatPatientName } from "../utils/format";
-
-const EXTRACTION_DELAY_MS = 900;
-const VERIFICATION_DELAY_MS = 1200;
 
 function createEmptyReviewForm(): ReviewFormValues {
   return { ...EMPTY_REVIEW_FORM };
@@ -60,106 +59,44 @@ function buildVerificationRequest(
   };
 }
 
-function buildMockExtractionResponse(
-  selectedDocuments: SelectedDocuments,
-): ExtractionResponse {
-  return {
-    patient: {
-      firstName: "Avery",
-      middleName: "Jordan",
-      lastName: "Carter",
-      dateOfBirth: "1988-11-04",
-      address: "123 Harbor Street",
-      city: "Baltimore",
-      state: "MD",
-      postalCode: "21201",
-    },
-    insurance: {
-      payerName: "Blue Cross Blue Shield of Maryland",
-      payerId: "BCBSMD01",
-      memberId: "XJH123456789",
-      groupNumber: "GRP-45029",
-      rxBin: "610279",
-      rxPcn: "03200000",
-      rxGroup: "MDRX01",
-    },
-    confidence: 0.93,
-    documentNotes: [
-      `Driver's license staged: ${selectedDocuments.driversLicense?.name ?? "missing"}`,
-      `Insurance front staged: ${selectedDocuments.insuranceFront?.name ?? "missing"}`,
-      `Insurance back staged: ${selectedDocuments.insuranceBack?.name ?? "missing"}`,
-    ],
-  };
+function buildExtractionFormData(selectedDocuments: SelectedDocuments): FormData {
+  const formData = new FormData();
+
+  formData.append(
+    "driver_license",
+    selectedDocuments.driversLicense as Blob,
+    selectedDocuments.driversLicense?.name,
+  );
+  formData.append(
+    "insurance_front",
+    selectedDocuments.insuranceFront as Blob,
+    selectedDocuments.insuranceFront?.name,
+  );
+  formData.append(
+    "insurance_back",
+    selectedDocuments.insuranceBack as Blob,
+    selectedDocuments.insuranceBack?.name,
+  );
+
+  return formData;
 }
 
-function buildMockVerificationResponse(
-  payload: VerificationRequest,
-): VerificationResponse {
-  const displayName = formatPatientName(payload.patient) || "Member";
-  const raw271 = [
-    "ISA*00*          *00*          *ZZ*MDLAND         *ZZ*ELIGIBILITY    *260314*1200*^*00501*000000905*0*T*:",
-    "GS*HB*MDLAND*ELIGIBILITY*20260314*1200*1*X*005010X279A1",
-    "ST*271*0001*005010X279A1",
-    "BHT*0022*11*10001234*20260314*1200",
-    "HL*1**20*1",
-    `NM1*PR*2*${payload.insurance.payerName.toUpperCase()}*****PI*${payload.insurance.payerId}`,
-    "HL*2*1*21*1",
-    "NM1*1P*2*MDLAND CLINIC*****XX*1234567893",
-    "HL*3*2*22*0",
-    `TRN*2*MDLAND-DEMO-${payload.insurance.memberId}`,
-    `NM1*IL*1*${payload.patient.lastName}*${payload.patient.firstName}****MI*${payload.insurance.memberId}`,
-    `DMG*D8*${payload.patient.dateOfBirth.split("-").join("")}`,
-    "EB*1**30**PLAN ACTIVE",
-    "EB*B**98***PRIMARY CARE $25 COPAY",
-    "EB*B**98***SPECIALIST $40 COPAY",
-    "EB*B**88***PHARMACY PROCESSOR: MEDRX ADVANCE",
-    "SE*16*0001",
-    "GE*1*1",
-    "IEA*1*000000905",
-  ].join("\n");
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    return (
+      (typeof error.response?.data?.detail === "string"
+        ? error.response.data.detail
+        : undefined) ??
+      error.message ??
+      fallback
+    );
+  }
 
-  return {
-    summary: {
-      verificationStatus: "verified",
-      coverageStatus: "active",
-      payerName: payload.insurance.payerName,
-      memberId: payload.insurance.memberId,
-      copays: {
-        primaryCare: "$25",
-        specialist: "$40",
-        urgentCare: "$60",
-        pharmacy: "Tiered copay plan",
-      },
-      pharmacyInfo: {
-        bin: payload.insurance.rxBin,
-        pcn: payload.insurance.rxPcn,
-        group: payload.insurance.rxGroup,
-        processor: "MedRx Advance",
-      },
-      discrepancies: [
-        {
-          field: "address",
-          extractedValue: payload.patient.address,
-          verifiedValue: `${payload.patient.address}, Apt 2`,
-          note: "Eligibility source returned a more specific service address.",
-        },
-      ],
-    },
-    warnings: [
-      {
-        code: "COPAY-DUE",
-        message: `${displayName} has an office visit copay due at check-in.`,
-        severity: "warning",
-      },
-      {
-        code: "PCP-REFERRAL",
-        message: "Specialist visits may require PCP referral confirmation.",
-        severity: "info",
-      },
-    ],
-    raw271,
-    checkedAt: new Date().toISOString(),
-  };
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 export default function HomePage() {
@@ -177,31 +114,12 @@ export default function HomePage() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const extractTimerRef = useRef<number | null>(null);
-  const verifyTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (extractTimerRef.current !== null) {
-        window.clearTimeout(extractTimerRef.current);
-      }
-
-      if (verifyTimerRef.current !== null) {
-        window.clearTimeout(verifyTimerRef.current);
-      }
-    };
-  }, []);
+  const extractRequestRef = useRef(0);
+  const verifyRequestRef = useRef(0);
 
   function resetDownstreamState() {
-    if (extractTimerRef.current !== null) {
-      window.clearTimeout(extractTimerRef.current);
-      extractTimerRef.current = null;
-    }
-
-    if (verifyTimerRef.current !== null) {
-      window.clearTimeout(verifyTimerRef.current);
-      verifyTimerRef.current = null;
-    }
+    extractRequestRef.current += 1;
+    verifyRequestRef.current += 1;
 
     setIsExtracting(false);
     setIsVerifying(false);
@@ -231,7 +149,7 @@ export default function HomePage() {
     setVerificationResponse(null);
   }
 
-  function handleExtract() {
+  async function handleExtract() {
     const hasAllDocuments = Object.values(selectedDocuments).every(Boolean);
 
     if (!hasAllDocuments) {
@@ -239,57 +157,84 @@ export default function HomePage() {
       return;
     }
 
-    if (extractTimerRef.current !== null) {
-      window.clearTimeout(extractTimerRef.current);
-    }
-
-    if (verifyTimerRef.current !== null) {
-      window.clearTimeout(verifyTimerRef.current);
-      verifyTimerRef.current = null;
-    }
+    const requestId = extractRequestRef.current + 1;
+    extractRequestRef.current = requestId;
+    verifyRequestRef.current += 1;
 
     setErrorMessage(null);
     setIsExtracting(true);
     setIsVerifying(false);
     setVerificationResponse(null);
 
-    extractTimerRef.current = window.setTimeout(() => {
-      const mockExtraction = buildMockExtractionResponse(selectedDocuments);
-      setExtractionResponse(mockExtraction);
-      setFormValues(buildReviewFormValues(mockExtraction));
-      setIsExtracting(false);
-      extractTimerRef.current = null;
-    }, EXTRACTION_DELAY_MS);
+    try {
+      const response = await extractDocuments(
+        buildExtractionFormData(selectedDocuments),
+      );
+
+      if (extractRequestRef.current !== requestId) {
+        return;
+      }
+
+      setExtractionResponse(response);
+      setFormValues(buildReviewFormValues(response));
+    } catch (error) {
+      if (extractRequestRef.current !== requestId) {
+        return;
+      }
+
+      setErrorMessage(
+        getErrorMessage(error, "Unable to extract documents right now."),
+      );
+    } finally {
+      if (extractRequestRef.current === requestId) {
+        setIsExtracting(false);
+      }
+    }
   }
 
-  function handleVerify() {
+  async function handleVerify() {
     if (!extractionResponse) {
       setErrorMessage("Run extraction before verifying eligibility.");
       return;
     }
 
-    if (verifyTimerRef.current !== null) {
-      window.clearTimeout(verifyTimerRef.current);
-    }
+    const requestId = verifyRequestRef.current + 1;
+    verifyRequestRef.current = requestId;
 
     setErrorMessage(null);
     setIsVerifying(true);
     setVerificationResponse(null);
 
-    const verificationPayload = buildVerificationRequest(formValues);
+    try {
+      const response = await verifyEligibility(
+        buildVerificationRequest(formValues),
+      );
 
-    verifyTimerRef.current = window.setTimeout(() => {
-      setVerificationResponse(buildMockVerificationResponse(verificationPayload));
-      setIsVerifying(false);
-      verifyTimerRef.current = null;
-    }, VERIFICATION_DELAY_MS);
+      if (verifyRequestRef.current !== requestId) {
+        return;
+      }
+
+      setVerificationResponse(response);
+    } catch (error) {
+      if (verifyRequestRef.current !== requestId) {
+        return;
+      }
+
+      setErrorMessage(
+        getErrorMessage(error, "Unable to verify eligibility right now."),
+      );
+    } finally {
+      if (verifyRequestRef.current === requestId) {
+        setIsVerifying(false);
+      }
+    }
   }
 
   const canExtract = Object.values(selectedDocuments).every(Boolean);
 
   return (
     <Layout
-      subtitle="A frontend-first walkthrough for document intake, extraction review, and mock eligibility verification."
+      subtitle="A working intake flow for document upload, extraction review, and live prototype eligibility verification."
       title="Patient Eligibility Prototype"
     >
       <div className="page-grid">
@@ -302,7 +247,7 @@ export default function HomePage() {
               <h2>Upload Documents</h2>
               <p>
                 Stage the driver&apos;s license and both insurance card sides to
-                kick off mock extraction.
+                kick off backend extraction.
               </p>
             </div>
           </div>
@@ -316,20 +261,19 @@ export default function HomePage() {
           />
 
           {isExtracting ? (
-            <LoadingSpinner label="Simulating document extraction..." />
+            <LoadingSpinner label="Extracting document data..." />
           ) : null}
 
           {extractionResponse ? (
             <p className="panel__note">
-              Mock extraction confidence:{" "}
+              Extraction confidence:{" "}
               {Math.round(extractionResponse.confidence * 100)}%{" "}
               <span className="panel__note-divider">/</span>{" "}
               {extractionResponse.documentNotes.join(" / ")}
             </p>
           ) : (
             <p className="panel__note">
-              Upload all three files, then click Extract to populate the review
-              form with mock data.
+              Upload all three files, then click Extract to populate the review form.
             </p>
           )}
         </section>
@@ -355,8 +299,16 @@ export default function HomePage() {
           />
 
           {isVerifying ? (
-            <LoadingSpinner label="Simulating eligibility verification and 271 parsing..." />
+            <LoadingSpinner label="Verifying eligibility and parsing 271..." />
           ) : null}
+
+          <article className="summary-card">
+            <h3>Extraction Warnings</h3>
+            <WarningList
+              emptyMessage="Extraction warnings will appear here after the documents are processed."
+              warnings={extractionResponse?.warnings ?? []}
+            />
+          </article>
         </section>
 
         <section className="panel">
@@ -379,7 +331,10 @@ export default function HomePage() {
           <div className="summary-subgrid">
             <article className="summary-card">
               <h3>Warnings</h3>
-              <WarningList warnings={verificationResponse?.warnings ?? []} />
+              <WarningList
+                emptyMessage="Verification warnings will appear here after eligibility is checked."
+                warnings={verificationResponse?.warnings ?? []}
+              />
             </article>
 
             <article className="summary-card">

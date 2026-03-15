@@ -6,7 +6,7 @@ export default function Raw271Viewer({ raw271 }: Raw271ViewerProps) {
   if (!raw271) {
     return (
       <div className="empty-state">
-        Raw 271 output will appear here after the mock verification step.
+        Raw 271 output will appear here after verification completes.
       </div>
     );
   }

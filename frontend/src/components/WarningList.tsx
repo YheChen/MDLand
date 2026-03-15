@@ -1,15 +1,19 @@
 import type { Warning } from "../types/api";
 
 interface WarningListProps {
+  emptyMessage?: string;
   warnings: Warning[];
 }
 
-export default function WarningList({ warnings }: WarningListProps) {
+export default function WarningList({
+  emptyMessage,
+  warnings,
+}: WarningListProps) {
   if (warnings.length === 0) {
     return (
       <div className="empty-state">
-        No warnings yet. They will appear after verification if something needs
-        front-desk attention.
+        {emptyMessage ??
+          "No warnings yet. They will appear after verification if something needs front-desk attention."}
       </div>
     );
   }

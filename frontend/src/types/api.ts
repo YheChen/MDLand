@@ -46,6 +46,7 @@ export interface ExtractionResponse {
   insurance: Insurance;
   confidence: number;
   documentNotes: string[];
+  warnings: Warning[];
 }
 
 export interface CopaySummary {

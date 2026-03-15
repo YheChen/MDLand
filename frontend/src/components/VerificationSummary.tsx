@@ -13,8 +13,7 @@ export default function VerificationSummary({
   if (!summary) {
     return (
       <div className="empty-state">
-        Verification results will appear here once the mock eligibility flow is
-        complete.
+        Verification results will appear here once eligibility is checked.
       </div>
     );
   }
@@ -95,7 +94,7 @@ export default function VerificationSummary({
 
         {summary.discrepancies.length === 0 ? (
           <div className="empty-state">
-            No discrepancies were found in the mock response.
+            No discrepancies were found in the returned response.
           </div>
         ) : (
           <ul className="discrepancy-list">

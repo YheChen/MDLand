@@ -44,7 +44,7 @@ export default function ExtractionReviewForm({
         <div className="form-section">
           <div className="form-section__header">
             <h3>Insurance Details</h3>
-            <p>Use local state for now so we can shape the API contract later.</p>
+            <p>These values stay editable after extraction before verification is submitted.</p>
           </div>
 
           <div className="form-grid">
