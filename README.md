@@ -1,6 +1,6 @@
-# mdland-eligibility-prototype
+# MDland-patient-eligibility-prototype
 
-Prototype repository for the MDLand hiring take-home.
+Prototype repository for the MDLand hiring take-home
 
 ## MVP Demo Scope
 
