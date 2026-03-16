@@ -201,7 +201,7 @@ npm run dev
 
 Frontend runs on `http://localhost:5173`.
 
-### Backend
+### Backend (macOS)
 
 Install Tesseract first:
 
@@ -215,6 +215,22 @@ Then run:
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+Backend runs on `http://localhost:8000`.
+
+### Backend (Windows PowerShell)
+
+Install Tesseract OCR for Windows first and make sure the `tesseract` executable is available on your `PATH`.
+
+Then run:
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
