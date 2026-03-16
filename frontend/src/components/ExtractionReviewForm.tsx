@@ -32,7 +32,6 @@ export default function ExtractionReviewForm({
                 <input
                   autoComplete={field.autoComplete}
                   onChange={(event) => onChange(field.key, event.target.value)}
-                  placeholder={field.placeholder}
                   type={field.key === "dateOfBirth" ? "date" : "text"}
                   value={values[field.key]}
                 />
@@ -54,7 +53,6 @@ export default function ExtractionReviewForm({
                 <input
                   autoComplete={field.autoComplete}
                   onChange={(event) => onChange(field.key, event.target.value)}
-                  placeholder={field.placeholder}
                   type="text"
                   value={values[field.key]}
                 />
