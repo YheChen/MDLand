@@ -258,12 +258,11 @@ cd frontend
 npm run build
 ```
 
-## Suggested Production Next Steps
+## Suggested Next Steps Towards Production
 
 - replace heuristic OCR parsing with a more robust document extraction pipeline
-- support real payer or clearinghouse eligibility checks
 - implement a more realistic X12 `271` mapping layer
-- add persistence for auditability, retries, and verification history
+- add persistence for auditability, retries, and verification history, connect to MongoDb/FireBase NoSQL database
 - add authentication and role-based access controls
 - add frontend tests and browser-level end-to-end coverage
 - add async processing for OCR and verification tasks
